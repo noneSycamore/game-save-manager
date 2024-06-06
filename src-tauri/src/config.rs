@@ -61,6 +61,20 @@ pub struct Settings {
     pub cloud_settings: CloudSettings,
     #[serde(default = "default_value::default_locale")]
     pub locale: String,
+    #[serde(default = "default_value::default_false")]
+    pub default_delete_before_apply: bool,
+    #[serde(default = "default_value::default_false")]
+    pub default_expend_favorites_tree: bool,
+    #[serde(default = "default_value::default_home_page")]
+    pub home_page:String
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FavoriteTreeNode {
+    node_id: String,
+    label: String,
+    is_leaf: bool,
+    children: Option<Vec<Self>>,
 }
 
 /// The software's configuration
@@ -72,12 +86,14 @@ pub struct Config {
     pub backup_path: String,
     pub games: Vec<Game>,
     pub settings: Settings,
+    #[serde(default = "default_value::empty_vec")]
+    pub favorites: Vec<FavoriteTreeNode>,
 }
 
 /// Get the default config struct
 fn default_config() -> Config {
     Config {
-        version: String::from("1.1.0"),
+        version: String::from("1.2.0"),
         backup_path: String::from("./save_data"),
         games: Vec::new(),
         settings: Settings {
@@ -87,8 +103,12 @@ fn default_config() -> Config {
             prompt_when_auto_backup: true,
             cloud_settings: default_value::default_cloud_settings(),
             exit_to_tray: true,
-            locale: "zh_SIMPLIFIED".to_owned(),
+            locale: default_value::default_locale(),
+            default_delete_before_apply: false,
+            default_expend_favorites_tree: false,
+            home_page: default_value::default_home_page(),
         },
+        favorites: vec![],
     }
 }
 
@@ -148,20 +168,24 @@ pub fn config_check() -> Result<(), ConfigError> {
         backup_old_config()?;
         if config.version == "1.0.0 alpha" {
             // 没有破坏性变化，可以直接采用默认值
-            config.version = "1.0.0".to_owned();
+            "1.0.0".clone_into(&mut config.version);
         }
         if config.version == "1.0.0" {
             // 没有破坏性变化，可以直接采用默认值
-            config.version = "1.0.1".to_owned();
+            "1.0.1".clone_into(&mut config.version);
         }
         if config.version == "1.0.1" {
             // 没有破坏性变化，可以直接采用默认值
             // 这次更新了SaveUnit，增加了delete_before_apply字段，不过这个字段默认值是false，所以不会有问题
-            config.version = "1.0.2".to_owned();
+            "1.0.2".clone_into(&mut config.version);
         }
         if config.version == "1.0.2" {
             // 没有破坏性变化，可以直接采用默认值
-            config.version = "1.1.0".to_owned();
+            "1.1.0".clone_into(&mut config.version);
+        }
+        if config.version == "1.1.0" {
+            // 没有破坏性，可以直接采用默认值
+            "1.2.0".clone_into(&mut config.version);
         }
         tauri::async_runtime::block_on(async { set_config(&config).await })?;
     }

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useConfig } from "../stores/ConfigFile";
 import { invoke } from "@tauri-apps/api/tauri";
 import { show_error, show_info, show_success } from "../utils/notifications";
@@ -8,6 +8,9 @@ import { useDark, useToggle } from '@vueuse/core'
 import { $t } from "../i18n";
 import { ElMessageBox, ElOption } from "element-plus";
 import { useI18n } from "vue-i18n";
+import draggable from 'vuedraggable'
+import { DocumentAdd, Grid, HotWater, InfoFilled, MostlyCloudy, Setting, SwitchFilled } from "@element-plus/icons-vue";
+
 
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
@@ -80,12 +83,12 @@ function backup_all() {
             }).catch(
                 (e) => {
                     console.log(e)
-                    show_error($t("error.failed"))
+                    show_error($t("settings.failed"))
                 }
             )
         })
         .catch(() => {
-            show_info($t('setting.operation_canceled'));
+            show_info($t('settings.operation_canceled'));
         });
 }
 
@@ -106,24 +109,39 @@ function apply_all() {
             }).catch(
                 (e) => {
                     console.log(e)
-                    show_error($t("error.failed"))
+                    show_error($t("settings.failed"))
                 }
             )
         })
         .catch(() => {
-            show_info($t('setting.operation_canceled'));
+            show_info($t('settings.operation_canceled'));
         });
 }
 
 watch(
     () => config.settings.locale,
-    (new_locale,_old_locale)=>{
+    (new_locale, _old_locale) => {
         console.log(new_locale)
         i18n.locale.value = new_locale
         show_info($t("settings.locale_changed"));
     }
 )
 
+const router_list = computed(() => {
+    // TODO:抽离到新文件中，同时`MainSideBar.vue`也要抽离
+    var link_list = [
+        { text: $t("sidebar.homepage"), link: "/home", icon: HotWater },
+        { text: $t("sidebar.add_game"), link: "/add-game", icon: DocumentAdd },
+        { text: $t('sidebar.favorite_manage'), link: "/favorite", icon: Grid },
+        { text: $t("sidebar.sync_settings"), link: "/sync-settings", icon: MostlyCloudy },
+        { text: $t("sidebar.settings"), link: "/settings", icon: Setting },
+        { text: $t("sidebar.about"), link: "/about", icon: InfoFilled },
+    ]
+    config.games.forEach((game) => {
+        link_list.push({ text: game.name, link: `/management/${game.name}`, icon: SwitchFilled })
+    })
+    return link_list
+})
 </script>
 
 <template>
@@ -154,6 +172,18 @@ watch(
                 🌍 Languages
             </div>
             <div class="setting-box">
+                <ElSelect :loading="loading" v-model="config.settings.home_page">
+                    <ElOption v-for="route_info in router_list" :key="route_info.text" :label="route_info.text"
+                        :value="route_info.link">
+                        <div class="home-option-box">
+                            <component :is="route_info.icon" class="home-box-icon"></component>
+                            {{ route_info.text }}
+                        </div>
+                    </ElOption>
+                </ElSelect>
+                🏠 {{ $t("settings.homepage") }}
+            </div>
+            <div class="setting-box">
                 <ElSwitch v-model="config.settings.prompt_when_not_described" :loading="loading" />
                 <span>{{ $t("settings.prompt_when_not_described") }}</span>
             </div>
@@ -178,20 +208,21 @@ watch(
                 <span>{{ $t("settings.enable_edit_manage") }}</span>
             </div>
             <div class="setting-box">
+                <ElSwitch v-model="config.settings.default_delete_before_apply" :loading="loading" />
+                <span>{{ $t("settings.default_delete_before_apply") }}</span>
+            </div>
+            <div class="setting-box">
+                <ElSwitch v-model="config.settings.default_expend_favorites_tree" :loading="loading" />
+                <span>{{ $t("settings.default_expend_favorites_tree") }}</span>
+            </div>
+            <div class="setting-box">
                 <ElCollapse>
                     <ElCollapseItem :title="$t('settings.adjust_game_order')">
-                        <ElTable :data="config.games" :border="true">
-                            <ElTableColumn prop="name" :label="$t('settings.name')" width="180" />
-                            <ElTableColumn prop="game_path" :label="$t('settings.game_path')" />
-                            <ElTableColumn fixed="right" :label="$t('settings.operation')" width="120">
-                                <template #default="scope">
-                                    <el-button link type="primary" size="small" @click="move_up(scope.row)">{{
-                                        $t("settings.move_up") }}</el-button>
-                                    <el-button link type="primary" size="small" @click="move_down(scope.row)">{{
-                                        $t("settings.move_down") }}</el-button>
-                                </template>
-                            </ElTableColumn>
-                        </ElTable>
+                        <draggable v-model="config.games" item-key="name">
+                            <template #item="{ element }">
+                                <div class="game-order-box"> 游戏名：{{ element.name }} </div>
+                            </template>
+                        </draggable>
                     </ElCollapseItem>
                 </ElCollapse>
             </div>
@@ -217,4 +248,37 @@ watch(
 .setting-box {
     margin-top: 10px;
 }
+
+/** 以下是排序盒子样式 */
+.game-order-box:hover {
+    transition: box-shadow 0.3s ease;
+    box-shadow: var(--el-box-shadow-light);
+}
+
+.game-order-box {
+    font-size: medium;
+    margin-top: 10px;
+    padding: 5px;
+    padding-left: 10px;
+    cursor: pointer;
+    transition: box-shadow 0.3s ease;
+    border: 1px solid var(--el-border-color);
+    border-radius: 4px;
+}
+
+/** 以上是排序盒子样式   */
+
+/** 以下是首页选择样式 */
+.home-option-box {
+    display: flex;
+    align-items: center;
+}
+
+.home-box-icon {
+    height: 1em;
+    width: 1em;
+    margin-right: 10px;
+}
+
+/** 以上是首页选择样式 */
 </style>
