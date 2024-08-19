@@ -33,7 +33,10 @@
     "failed": "操作失败",
     "operation_canceled": "您取消了这次操作",
     "default_expend_favorites_tree": "是否默认展开收藏夹",
-    "homepage": "启动页面"
+    "homepage": "启动页面",
+    "open_log_folder": "打开日志",
+    "log_to_file": "生成文件日志",
+    "setting_tips": "带有星号表示重启后生效，其余设置保存后生效"
   },
   "home": {
     "hello_world": "你好 世界",
@@ -94,7 +97,9 @@
     "change_description_failed": "修改失败",
     "set_quick_backup": "启用快捷备份",
     "set_quick_backup_success": "设置成功，可以用快捷键或托盘图标快捷操作",
-    "set_quick_backup_failed": "设置失败"
+    "set_quick_backup_failed": "设置失败",
+    "batch_delete": "批量删除",
+    "batch_delete_prompt": "注意，该操作会删除所有选中的存档，确定请输入yes"
   },
   "addgame": {
     "search_local": "自动识别本地游戏",
@@ -116,7 +121,7 @@
     "path": "路径",
     "warning_for_save_file": "暂时不支持添加同名文件、文件夹，请勿这样使用，如果有需要，请反馈给我，我将考虑制作",
     "invalid_name_error": "无效的游戏名，请不要包含无法创建文件的特殊字符",
-    "duplicated_name_error": "重复的游戏名"
+    "duplicated_name_error": "重复的游戏名（游戏名不区分大小写）"
   },
   "app": {
     "early_access_warning": "这是一个早期测试版本，不能保证稳定性，请谨慎使用"
@@ -224,25 +229,36 @@
     "delete_game_failed": "删除游戏失败",
     "open_backup_folder_failed": "打开备份文件夹失败",
     "set_config_failed": "设置配置失败",
-    "reset_settings_failed": "重置设置失败"
+    "reset_settings_failed": "重置设置失败",
+    "change_description_failed": "编辑描述失败",
+    "open_log_folder_failed": "无法打开日志文件夹"
   },
-  "tray": {
-    "no_game_selected": "未选择游戏",
-    "auto_backup_interval": "自动备份间隔",
-    "turn_off_auto_backup": "关闭自动备份",
-    "5_minute": "5分钟",
-    "10_minute": "10分钟",
-    "30_minute": "30分钟",
-    "60_minute": "60分钟",
-    "quick_backup": "快速备份",
-    "quick_apply": "快速读档",
-    "exit": "退出",
-    "success": "成功",
-    "error": "错误"
-  },
-  "backend_config": {
-    "updating_config_title": "更新配置文件",
-    "updating_config_body": "配置文件已更新，旧的将会备份为 GameSaveManager.config.json.bak"
+  "backend": {
+    "config": {
+      "updating_config_title": "更新配置文件",
+      "updating_config_body": "配置文件已更新，旧的将会备份为 GameSaveManager.config.json.bak"
+    },
+    "tray": {
+      "no_game_selected": "未选择游戏",
+      "auto_backup_interval": "自动备份间隔",
+      "turn_off_auto_backup": "关闭自动备份",
+      "5_minute": "5分钟",
+      "10_minute": "10分钟",
+      "30_minute": "30分钟",
+      "60_minute": "60分钟",
+      "quick_backup": "快速备份",
+      "quick_apply": "快速读档",
+      "exit": "退出",
+      "success": "成功",
+      "error": "错误"
+    },
+    "backup": {
+      "extra_backup_file_not_exist": "由于文件不存在，无法完成额外备份(覆盖前备份)，恢复中止。如果不需要该功能，请在设置中关闭。",
+      "backup_file_not_exist": "文件 {name} 不存在，无法进行备份或恢复"
+    },
+    "archive": {
+      "file_not_exist": "路径 {path} 不存在，已经自动创建"
+    }
   },
   "favorite": {
     "favorite_manage": "收藏管理",

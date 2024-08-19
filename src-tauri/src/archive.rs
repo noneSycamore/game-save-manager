@@ -8,11 +8,12 @@ use fs_extra::dir::move_dir;
 use fs_extra::file::move_file;
 
 use tauri::{AppHandle, Manager};
-use zip::{write::FileOptions, ZipWriter};
+use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
     config::{SaveUnit, SaveUnitType},
-    errors::{BackupFileError, CompressError}, ipc_handler::{IpcNotification, NotificationLevel},
+    errors::{BackupFileError, CompressError},
+    ipc_handler::{IpcNotification, NotificationLevel},
 };
 
 /// [Code reference](https://github.com/matzefriedrich/zip-extensions-rs/blob/master/src/write.rs#:~:text=%7D-,fn,create_from_directory_with_options,-\()
@@ -36,7 +37,7 @@ where
             .to_str()
             .ok_or(BackupFileError::NonePathError)?
             .to_string(),
-        FileOptions::default(),
+        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Bzip2),
     )?;
     let mut paths = Vec::new();
     paths.push(origin);
@@ -57,7 +58,7 @@ where
                 f.read_to_end(&mut buffer)?;
                 writer.start_file(
                     cur_path.to_str().ok_or(BackupFileError::NonePathError)?,
-                    zip::write::FileOptions::default(),
+                    SimpleFileOptions::default().compression_method(zip::CompressionMethod::Bzip2),
                 )?;
                 writer.write_all(&buffer)?;
                 buffer.clear();
@@ -90,7 +91,8 @@ pub fn compress_to_file(save_paths: &[SaveUnit], zip_path: &Path) -> Result<(), 
                                 .ok_or(BackupFileError::NonePathError)?
                                 .to_str()
                                 .ok_or(BackupFileError::NonePathError)?,
-                            zip::write::FileOptions::default(),
+                            SimpleFileOptions::default()
+                                .compression_method(zip::CompressionMethod::Bzip2),
                         )?;
                         zip.write_all(&buf)?;
                     }
@@ -156,8 +158,12 @@ pub fn decompress_from_file(
                                     "Notification",
                                     IpcNotification {
                                         level: NotificationLevel::warning,
-                                        title: "警告".to_string(),
-                                        msg: format!("路径 {:?} 不存在，已经自动创建", prefix_root),
+                                        title: "WARNING".to_string(),
+                                        msg: t!(
+                                            "backend.archive.file_not_exist",
+                                            path = prefix_root.to_str().unwrap_or("ERROR") // TODO:优化错误处理
+                                        )
+                                        .to_string(),
                                     },
                                 )
                                 .map_err(anyhow::Error::from)?;
@@ -174,13 +180,17 @@ pub fn decompress_from_file(
                             unit_path.parent().ok_or(BackupFileError::NonePathError)?;
                         if !target_path.exists() {
                             // 若文件夹不存在，需要发出警告
-                            app_handle// TODO:i18n
+                            app_handle // TODO:i18n
                                 .emit_all(
                                     "Notification",
                                     IpcNotification {
                                         level: NotificationLevel::warning,
-                                        title: "警告".to_string(),
-                                        msg: format!("路径 {:?} 不存在，已经自动创建", target_path),
+                                        title: "WARNING".to_string(),
+                                        msg: t!(
+                                            "backend.archive.file_not_exist",
+                                            path = target_path.to_str().unwrap_or("ERROR") // TODO:优化错误处理
+                                        )
+                                        .to_string(),
                                     },
                                 )
                                 .map_err(anyhow::Error::from)?;

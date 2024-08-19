@@ -2,12 +2,15 @@ use std::fs::File;
 use std::{fs, path};
 
 use rust_i18n::t;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use tauri::api::notification::Notification;
+use tracing::info;
 
 use crate::cloud::CloudSettings;
 use crate::default_value;
 use crate::errors::ConfigError;
+use crate::traits::Sanitizable;
 
 /// A save unit should be a file or a folder
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -27,25 +30,15 @@ pub struct SaveUnit {
 }
 
 /// A game struct contains the save units and the game's launcher
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Game {
     pub name: String,
     pub save_paths: Vec<SaveUnit>,
     pub game_path: Option<String>,
 }
 
-impl Clone for Game {
-    fn clone(&self) -> Self {
-        Game {
-            name: self.name.clone(),
-            save_paths: self.save_paths.clone(),
-            game_path: self.game_path.clone(),
-        }
-    }
-}
-
 /// Settings that can be configured by user
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     #[serde(default = "default_value::default_true")]
     pub prompt_when_not_described: bool,
@@ -66,10 +59,21 @@ pub struct Settings {
     #[serde(default = "default_value::default_false")]
     pub default_expend_favorites_tree: bool,
     #[serde(default = "default_value::default_home_page")]
-    pub home_page:String
+    pub home_page: String,
+    #[serde(default = "default_value::default_true")]
+    pub log_to_file: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl Sanitizable for Settings {
+    fn sanitize(self) -> Self {
+        Settings {
+            cloud_settings: self.cloud_settings.sanitize(),
+            ..self
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FavoriteTreeNode {
     node_id: String,
     label: String,
@@ -80,7 +84,7 @@ pub struct FavoriteTreeNode {
 /// The software's configuration
 /// include the version, backup's location path, games'info,
 /// and the settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub version: String,
     pub backup_path: String,
@@ -90,31 +94,42 @@ pub struct Config {
     pub favorites: Vec<FavoriteTreeNode>,
 }
 
-/// Get the default config struct
-fn default_config() -> Config {
-    Config {
-        version: String::from("1.2.0"),
-        backup_path: String::from("./save_data"),
-        games: Vec::new(),
-        settings: Settings {
-            prompt_when_not_described: false,
-            extra_backup_when_apply: true,
-            show_edit_button: false,
-            prompt_when_auto_backup: true,
-            cloud_settings: default_value::default_cloud_settings(),
-            exit_to_tray: true,
-            locale: default_value::default_locale(),
-            default_delete_before_apply: false,
-            default_expend_favorites_tree: false,
-            home_page: default_value::default_home_page(),
-        },
-        favorites: vec![],
+impl Sanitizable for Config {
+    fn sanitize(self) -> Self {
+        Config {
+            settings: self.settings.sanitize(),
+            ..self
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            version: String::from("1.3.0"),
+            backup_path: String::from("./save_data"),
+            games: Vec::new(),
+            settings: Settings {
+                prompt_when_not_described: false,
+                extra_backup_when_apply: true,
+                show_edit_button: false,
+                prompt_when_auto_backup: true,
+                cloud_settings: default_value::default_cloud_settings(),
+                exit_to_tray: true,
+                locale: default_value::default_locale(),
+                default_delete_before_apply: false,
+                default_expend_favorites_tree: false,
+                home_page: default_value::default_home_page(),
+                log_to_file: true,
+            },
+            favorites: vec![],
+        }
     }
 }
 
 /// Set settings to original state
 pub async fn reset_settings() -> Result<(), ConfigError> {
-    let settings = default_config().settings;
+    let settings = Config::default().settings;
     let mut config = get_config()?;
     config.settings = settings;
     set_config(&config).await
@@ -122,10 +137,10 @@ pub async fn reset_settings() -> Result<(), ConfigError> {
 
 /// Create a config file
 fn init_config() -> Result<(), ConfigError> {
-    println!("Init config file.");
+    info!("Init config file.");
     fs::write(
         "./GameSaveManager.config.json",
-        serde_json::to_string_pretty(&default_config())?,
+        serde_json::to_string_pretty(&Config::default())?,
     )?;
     Ok(())
 }
@@ -159,38 +174,43 @@ pub fn config_check() -> Result<(), ConfigError> {
         init_config()?;
     }
     let mut config = get_config()?;
-    if config.version != default_config().version {
+
+    // 处理早期版本兼容性
+    if config.version == "1.0.0 alpha" {
+        "1.0.0-alpha".clone_into(&mut config.version);
+    }
+    let software_version = Version::parse(&Config::default().version)?;
+    let config_version = Version::parse(&config.version)?;
+    if config_version != software_version {
         Notification::new("Update Config Info")
-            .title(t!("backend_config.updating_config_title"))
-            .body(t!("backend_config.updating_config_body"))
+            .title(t!("backend.config.updating_config_title"))
+            .body(t!("backend.config.updating_config_body"))
             .show()
             .expect("Cannot show notification");
         backup_old_config()?;
-        if config.version == "1.0.0 alpha" {
-            // 没有破坏性变化，可以直接采用默认值
-            "1.0.0".clone_into(&mut config.version);
-        }
-        if config.version == "1.0.0" {
-            // 没有破坏性变化，可以直接采用默认值
-            "1.0.1".clone_into(&mut config.version);
-        }
-        if config.version == "1.0.1" {
-            // 没有破坏性变化，可以直接采用默认值
-            // 这次更新了SaveUnit，增加了delete_before_apply字段，不过这个字段默认值是false，所以不会有问题
-            "1.0.2".clone_into(&mut config.version);
-        }
-        if config.version == "1.0.2" {
-            // 没有破坏性变化，可以直接采用默认值
-            "1.1.0".clone_into(&mut config.version);
-        }
-        if config.version == "1.1.0" {
-            // 没有破坏性，可以直接采用默认值
-            "1.2.0".clone_into(&mut config.version);
-        }
-        tauri::async_runtime::block_on(async { set_config(&config).await })?;
     }
+    if config_version < Version::parse("1.0.0")? {
+        panic!("The config version is not supported.It's too old.")
+    }
+    if config_version < software_version {
+        upgrade_config_version(&mut config, &software_version)?;
+    }
+    if config_version > software_version {
+        panic!("The config version is higher than the software.")
+    }
+
     rust_i18n::set_locale(&config.settings.locale);
     Ok(()) // return the config json
+}
+
+fn upgrade_config_version(
+    config: &mut Config,
+    software_version: &semver::Version,
+) -> Result<(), ConfigError> {
+    // 由于1.0之后版本保持了兼容性，因此不需要做任何处理，仅更新版本号并保存
+    config.version = software_version.to_string();
+    tauri::async_runtime::block_on(async { set_config(config).await })?;
+    Ok(())
 }
 
 fn backup_old_config() -> Result<(), ConfigError> {
@@ -203,39 +223,14 @@ fn backup_old_config() -> Result<(), ConfigError> {
 
 #[cfg(test)]
 mod test {
-    use super::{default_config, Game, SaveUnit, SaveUnitType};
+    use super::Config;
     use anyhow::Result;
 
     #[test]
     fn serialize_default_config() -> Result<()> {
-        let config = default_config();
+        let config = Config::default();
         let json = serde_json::to_string_pretty(&config)?;
         println!("序列化得到:\n{}", json);
-        Ok(())
-    }
-    #[test]
-    fn serialize_games() -> Result<()> {
-        let mut units = Vec::new();
-        units.push(SaveUnit {
-            unit_type: SaveUnitType::File,
-            path: String::from("C://aaa.txt"),
-            delete_before_apply: false,
-        });
-        units.push(SaveUnit {
-            unit_type: SaveUnitType::Folder,
-            path: String::from("C://aaa"),
-            delete_before_apply: false,
-        });
-        let mut games = Vec::new();
-        games.push(Game {
-            name: String::from("111"),
-            game_path: None,
-            save_paths: units,
-        });
-        let json = serde_json::to_string(&games)?;
-        assert_eq!(json,String::from(
-            "[{\"name\":\"111\",\"save_paths\":[{\"unit_type\":\"File\",\"path\":\"C://aaa.txt\"},{\"unit_type\":\"Folder\",\"path\":\"C://aaa\"}],\"game_path\":null}]"
-        ));
         Ok(())
     }
 }

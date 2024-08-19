@@ -18,7 +18,7 @@ pub enum BackupFileError {
 }
 
 /// 压缩或解压缩时发生的错误
-#[derive(Debug,Error)]
+#[derive(Debug, Error)]
 pub enum CompressError {
     #[error(transparent)]
     Single(#[from] BackupFileError),
@@ -108,4 +108,6 @@ pub enum ConfigError {
     BackendError(#[from] BackendError),
     #[error("Tauri error: {0:#?}")]
     TauriError(#[from] tauri::Error),
+    #[error("Semver error: {0:#?}")]
+    SemverError(#[from] semver::Error),
 }

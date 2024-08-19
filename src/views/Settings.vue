@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+// TODO:调整日志设置，比如删除日
 import { computed, ref, watch } from "vue";
 import { useConfig } from "../stores/ConfigFile";
 import { invoke } from "@tauri-apps/api/tauri";
@@ -50,20 +51,6 @@ function reset_settings() {
             show_error($t("error.reset_settings_failed"))
         }
     )
-}
-
-function move_up(game: Game) {
-    console.log(game)
-    let index = config.games.findIndex((x) => x.name == game.name)
-    if (index != 0) {
-        config.games[index] = config.games.splice(index - 1, 1, config.games[index])[0];
-    }
-}
-function move_down(game: Game) {
-    let index = config.games.findIndex((x) => x.name == game.name)
-    if (index != config.games.length - 1) {
-        config.games[index] = config.games.splice(index + 1, 1, config.games[index])[0];
-    }
 }
 
 function backup_all() {
@@ -118,6 +105,16 @@ function apply_all() {
         });
 }
 
+function open_log_folder() {
+    invoke("open_url", { url: "log" })
+        .catch(
+            (e) => {
+                console.log(e)
+                show_error($t('error.open_log_folder_failed'))
+            }
+        )
+}
+
 watch(
     () => config.settings.locale,
     (new_locale, _old_locale) => {
@@ -148,9 +145,11 @@ const router_list = computed(() => {
     <el-container class="setting" direction="vertical">
         <el-card>
             <h1>{{ $t("settings.customizable_settings") }}</h1>
+            <p>{{ $t("settings.setting_tips") }}</p>
             <div class="button-bar">
                 <el-button @click="submit_settings()">{{ $t("settings.submit_settings") }}</el-button>
                 <el-button @click="abort_change()">{{ $t("settings.abort_change") }}</el-button>
+                <el-button @click="open_log_folder()">{{ $t("settings.open_log_folder") }}</el-button>
                 <el-popconfirm :title="$t('settings.confirm_reset')" :on-confirm="reset_settings">
                     <template #reference>
                         <el-button type="danger">{{ $t("settings.reset_settings") }}</el-button>
@@ -169,7 +168,7 @@ const router_list = computed(() => {
                         :label="(locale_message[locale] as any)['settings']['locale_name'] + ' - ' + locale"
                         :value="locale" />
                 </ElSelect>
-                🌍 Languages
+                🌍 Languages*
             </div>
             <div class="setting-box">
                 <ElSelect :loading="loading" v-model="config.settings.home_page">
@@ -193,7 +192,7 @@ const router_list = computed(() => {
             </div>
             <div class="setting-box">
                 <ElSwitch v-model="config.settings.exit_to_tray" :loading="loading" />
-                <span>{{ $t("settings.exit_to_tray") }}</span>
+                <span>{{ $t("settings.exit_to_tray") }}*</span>
             </div>
             <div class="setting-box">
                 <ElSwitch v-model="config.settings.extra_backup_when_apply" :loading="loading" />
@@ -216,11 +215,15 @@ const router_list = computed(() => {
                 <span>{{ $t("settings.default_expend_favorites_tree") }}</span>
             </div>
             <div class="setting-box">
+                <ElSwitch v-model="config.settings.log_to_file" :loading="loading" />
+                <span>{{ $t("settings.log_to_file") }}*</span>
+            </div>
+            <div class="setting-box drag-game-box">
                 <ElCollapse>
                     <ElCollapseItem :title="$t('settings.adjust_game_order')">
-                        <draggable v-model="config.games" item-key="name">
+                        <draggable v-model="config.games" item-key="name" :force-fallback="true">
                             <template #item="{ element }">
-                                <div class="game-order-box"> 游戏名：{{ element.name }} </div>
+                                <div class="game-order-box"> {{ element.name }} </div>
                             </template>
                         </draggable>
                     </ElCollapseItem>
@@ -281,4 +284,12 @@ const router_list = computed(() => {
 }
 
 /** 以上是首页选择样式 */
+
+.drag-game-box {
+    user-select: none;
+}
+
+.el-select {
+    max-width: 200px;
+}
 </style>

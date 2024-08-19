@@ -1,4 +1,3 @@
-// TODO: 需要错误处理和日志，这里的东西大多在其他线程，无法打印到主线程的控制台
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -9,6 +8,7 @@ use tauri::{
     LogicalSize, Manager, State, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
     SystemTraySubmenu,
 };
+use tracing::{info, warn};
 
 use crate::config::{get_config, Game};
 
@@ -34,42 +34,42 @@ pub fn get_tray() -> SystemTray {
     let tray_menu = SystemTrayMenu::new()
         .add_item(CustomMenuItem::new(
             "game".to_owned(),
-            t!("tray.no_game_selected"),
+            t!("backend.tray.no_game_selected"),
         ))
         .add_submenu(SystemTraySubmenu::new(
-            t!("tray.auto_backup_interval"),
+            t!("backend.tray.auto_backup_interval"),
             SystemTrayMenu::new()
                 .add_item(CustomMenuItem::new(
                     "timer.0".to_owned(),
-                    t!("tray.turn_off_auto_backup"),
+                    t!("backend.tray.turn_off_auto_backup"),
                 ))
                 .add_item(CustomMenuItem::new(
                     "timer.5".to_owned(),
-                    t!("tray.5_minute"),
+                    t!("backend.tray.5_minute"),
                 ))
                 .add_item(CustomMenuItem::new(
                     "timer.10".to_owned(),
-                    t!("tray.10_minute"),
+                    t!("backend.tray.10_minute"),
                 ))
                 .add_item(CustomMenuItem::new(
                     "timer.30".to_owned(),
-                    t!("tray.30_minute"),
+                    t!("backend.tray.30_minute"),
                 ))
                 .add_item(CustomMenuItem::new(
                     "timer.60".to_owned(),
-                    t!("tray.60_minute"),
+                    t!("backend.tray.60_minute"),
                 )),
         ))
         .add_item(CustomMenuItem::new(
             "backup".to_owned(),
-            t!("tray.quick_backup"),
+            t!("backend.tray.quick_backup"),
         ))
         .add_item(CustomMenuItem::new(
             "apply".to_owned(),
-            t!("tray.quick_apply"),
+            t!("backend.tray.quick_apply"),
         ))
         .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("quit".to_owned(), t!("tray.exit")));
+        .add_item(CustomMenuItem::new("quit".to_owned(), t!("backend.tray.exit")));
     // Menu items end
 
     SystemTray::new().with_menu(tray_menu)
@@ -78,6 +78,7 @@ pub fn get_tray() -> SystemTray {
 pub fn tray_event_handler(app: &AppHandle, event: SystemTrayEvent) {
     match event {
         SystemTrayEvent::LeftClick { .. } => {
+            info!(target: "rgsm::tray", "Tray left click");
             if let Some(window) = app.get_window("main") {
                 window.close().expect("Cannot close window");
             } else {
@@ -102,48 +103,47 @@ pub fn tray_event_handler(app: &AppHandle, event: SystemTrayEvent) {
                 window.show().expect("Cannot show window");
                 window.set_focus().expect("Cannot set focus");
             }
-            // if window.is_visible().expect("Cannot get is_visible") {
-            //     window.hide().expect("Cannot hide");
-            // } else {
-            //     window.show().expect("Cannot show");
-            //     window.set_focus().expect("Cannot set focus");
-            // }
         }
         SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
             "backup" => {
+                info!(target:"rgsm::tray", "Tray quick backup clicked");
                 let state: State<Arc<Mutex<QuickBackupState>>> = app.state();
                 let game = &state.lock().expect("Cannot get state lock").current_game;
                 match game {
                     Some(game) => {
+                        info!(target:"rgsm::tray", "Quick backup game: {:#?}", game);
                         tauri::async_runtime::block_on(async {
                             game.backup_save("Quick Backup").await
                         })
                         .expect("Tauri async runtime error, cannot block_on");
                         Notification::new(&app.config().tauri.bundle.identifier)
-                            .title(t!("tray.success"))
+                            .title(t!("backend.tray.success"))
                             .body(format!(
                                 "{:#?} {} {}",
                                 game.name,
-                                t!("tray.quick_backup"),
-                                t!("tray.success")
+                                t!("backend.tray.quick_backup"),
+                                t!("backend.tray.success")
                             ))
                             .show()
                             .expect("Cannot show notification");
                     }
                     None => {
+                        warn!(target:"rgsm::tray", "No game selected, cannot quick backup");
                         Notification::new(&app.config().tauri.bundle.identifier)
-                            .title(t!("tray.error"))
-                            .body(t!("tray.no_game_selected"))
+                            .title(t!("backend.tray.error"))
+                            .body(t!("backend.tray.no_game_selected"))
                             .show()
                             .expect("Cannot show notification");
                     }
                 }
             }
             "apply" => {
+                info!(target:"rgsm::tray", "Tray quick apply clicked.");
                 let state: State<Arc<Mutex<QuickBackupState>>> = app.state();
                 let game = &state.lock().expect("Cannot get state lock").current_game;
                 match game {
                     Some(game) => {
+                        info!(target:"rgsm::tray", "Quick apply game: {:#?}", game);
                         let newest_date = game
                             .get_backup_list_info()
                             .expect("Cannot get backup list info")
@@ -157,29 +157,32 @@ pub fn tray_event_handler(app: &AppHandle, event: SystemTrayEvent) {
                         })
                         .expect("Tauri async runtime error, cannot block_on");
                         Notification::new(&app.config().tauri.bundle.identifier)
-                            .title(t!("tray.success"))
+                            .title(t!("backend.tray.success"))
                             .body(format!(
                                 "{:#?} {} {}",
                                 game.name,
-                                t!("tray.quick_apply"),
-                                t!("tray.success")
+                                t!("backend.tray.quick_apply"),
+                                t!("backend.tray.success")
                             ))
                             .show()
                             .expect("Cannot show notification");
                     }
                     None => {
+                        warn!(target:"rgsm::tray","No game selected, cannot quick apply.");
                         Notification::new(&app.config().tauri.bundle.identifier)
-                            .title(t!("tray.error"))
-                            .body(t!("tray.no_game_selected"))
+                            .title(t!("backend.tray.error"))
+                            .body(t!("backend.tray.no_game_selected"))
                             .show()
                             .expect("Cannot show notification");
                     }
                 }
             }
             "quit" => {
+                info!(target:"rgsm::tray","Tray quit clicked.");
                 app.exit(0);
             }
             other => {
+                info!(target:"rgsm::tray","Tray menu item clicked: {other}.");
                 if other.starts_with("timer.") {
                     // safe:所有输入来自程序字面量，保证了不会出现非数字的情况
                     let duration = match other.split('.').last().unwrap() {
@@ -200,6 +203,7 @@ pub fn tray_event_handler(app: &AppHandle, event: SystemTrayEvent) {
 }
 
 pub fn set_current_game(app: &AppHandle, game: Game) {
+    info!(target:"rgsm::tray","Setting current quick backup game:{}",game.name);
     let state: State<Arc<Mutex<QuickBackupState>>> = app.state();
     app.tray_handle()
         .get_item("game")
@@ -209,6 +213,7 @@ pub fn set_current_game(app: &AppHandle, game: Game) {
 }
 
 pub fn setup_timer(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+    info!(target:"rgsm::tray::timer","Setting up tray timer.");
     let state: State<Arc<Mutex<QuickBackupState>>> = app.state();
     let state = state.inner().clone();
     tauri::async_runtime::spawn(async move {
@@ -229,8 +234,10 @@ pub fn setup_timer(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
             if let Some(duration) = duration {
                 if counter >= duration {
+                    info!(target:"rgsm::tray::timer", "Auto backup triggered.");
                     match &game {
                         Some(game) => {
+                            info!(target:"rgsm::tray::timer", "Backing up game:{}",game.name);
                             let show_info = get_config()
                                 .expect("Cannot get config")
                                 .settings
@@ -240,16 +247,17 @@ pub fn setup_timer(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 .expect("Cannot backup");
                             if show_info {
                                 Notification::new("QuickBackup")
-                                    .title(t!("tray.success"))
+                                    .title(t!("backend.tray.success"))
                                     .body(format!("{:#?}自动备份成功", game.name))
                                     .show()
                                     .expect("Cannot show notification");
                             }
                         }
                         None => {
+                            warn!(target:"rgsm::tray::timer", "No game selected, skipping auto backup.");
                             Notification::new("Auto Backup Info")
-                                .title(t!("tray.error"))
-                                .body(t!("tray.no_game_selected"))
+                                .title(t!("backend.tray.error"))
+                                .body(t!("backend.tray.no_game_selected"))
                                 .show()
                                 .expect("Cannot show notification");
                         }
@@ -263,5 +271,6 @@ pub fn setup_timer(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             counter %= u32::MAX; // 防止溢出
         }
     });
+    info!(target:"rgsm::tray::timer","Tray timer setup complete.");
     Ok(())
 }

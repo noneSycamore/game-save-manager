@@ -3,9 +3,9 @@ import { Ref, computed, ref, watch } from "vue";
 import { ElInput, ElMessageBox } from "element-plus";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useConfig } from "../stores/ConfigFile";
-import { BackupsInfo, Game } from "../schemas/saveTypes";
+import { Backup, BackupsInfo, Game } from "../schemas/saveTypes";
 import { useRoute, useRouter } from "vue-router";
-import { show_error, show_info, show_success, show_warning } from "../utils/notifications";
+import { show_error, show_info, show_success } from "../utils/notifications";
 import SaveLocationDrawer from "../components/SaveLocationDrawer.vue";
 import { $t } from "../i18n";
 
@@ -44,6 +44,36 @@ let backup_button_backup_limit = true; // 上次没备份好禁止再备份或�
 let apply_button_apply_limit = true; // 上次未恢复好禁止读取或备份
 let showEditButton = config.settings.show_edit_button;
 
+// 批量操作记录列表
+const selected_backup_list: Ref<Backup[]> = ref([]);
+function on_selection_change(val: Backup[]) {
+    selected_backup_list.value = val;
+}
+async function batch_delete() {
+    try {
+        const result = await ElMessageBox.prompt(
+            $t('manage.batch_delete_prompt'),
+            $t('home.hint'),
+            {
+                confirmButtonText: $t('manage.confirm'),
+                cancelButtonText: $t('manage.cancel'),
+                inputPattern: /yes/,
+                inputErrorMessage: $t('manage.invalid_input_error'),
+            }
+        );
+
+        if (result.value === 'yes') {
+            for (const item of selected_backup_list.value) {
+                await del_save(item.date);
+            }
+        } else {
+            show_info($t('manage.invalid_input_error'));
+        }
+    } catch (error) {
+        show_info($t('manage.operation_canceled'));
+    }
+}
+
 // Init game info
 watch(
     () => route.params,
@@ -72,7 +102,7 @@ function refresh_backups_info() {
 }
 
 function send_save_to_background() {
-    show_info($t('manage.wait_for_prompt_hint'));
+    let info = show_info($t('manage.wait_for_prompt_hint'), undefined, 0);
     if (!backup_button_time_limit) {
         show_error($t('manage.save_too_fast_error'));
         return;
@@ -96,6 +126,7 @@ function send_save_to_background() {
                 show_error($t('error.backup_failed'))
             }
         ).finally(() => {
+            info.close()
             backup_button_backup_limit = true
             refresh_backups_info();
         })
@@ -141,22 +172,21 @@ function launch_game() {
     }
 }
 
-function del_save(date: string) {
-    console.log(date)
-    invoke("delete_backup", { game: game.value, date: date }).then((x) => {
-        console.log(x)
+async function del_save(date: string) {
+    try {
+        console.log(date);
+        const result = await invoke("delete_backup", { game: game.value, date: date });
+        console.log(result);
         refresh_backups_info();
         show_success($t('manage.delete_success'));
-    }).catch(
-        (e) => {
-            console.log(e)
-            show_error($t('error.delete_backup_failed'))
-        }
-    )
+    } catch (e) {
+        console.log(e);
+        show_error($t('error.delete_backup_failed'));
+    }
 }
 
 function apply_save(date: string) {
-    show_warning($t('manage.wait_for_prompt_hint'));
+    let info = show_info($t('manage.wait_for_prompt_hint'), undefined, 0);
 
     if (!apply_button_apply_limit) {
         show_error($t('manage.last_overwrite_unfinished_error'));
@@ -175,6 +205,7 @@ function apply_save(date: string) {
             console.log(e)
             show_error($t('error.apply_backup_failed'))
         }).finally(() => {
+            info.close()
             apply_button_apply_limit = true;
             refresh_backups_info();
         })
@@ -332,6 +363,9 @@ const filter_table = computed(
                 <el-button type="danger" round @click="del_cur()">
                     {{ $t('manage.delete_save_manage') }}
                 </el-button>
+                <el-button type="danger" round v-if="selected_backup_list.length>0" @click="batch_delete()">
+                    {{ $t("manage.batch_delete") }}
+                </el-button>
             </div>
             <!-- 下面是当前存档描述信息 -->
 
@@ -343,7 +377,8 @@ const filter_table = computed(
         <el-card class="saves-container">
             <!-- 存档应当用点击展开+内部表格的方式来展示 -->
             <!-- 这里应该有添加新存档按钮，按下后选择标题和描述进行存档 -->
-            <el-table :data="filter_table" style="width: 100%">
+            <el-table :data="filter_table" style="width: 100%" @selection-change="on_selection_change">
+                <el-table-column type="selection" width="55" />
                 <el-table-column :label="$t('manage.save_date')" prop="date" width="200px" sortable />
                 <el-table-column :label="$t('manage.description')" prop="describe" />
                 <el-table-column align="right">

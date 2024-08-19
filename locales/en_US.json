@@ -33,7 +33,10 @@
     "failed": "Operation failed",
     "operation_canceled": "You have cancelled this operation",
     "default_expend_favorites_tree": "Whether to expand favorites by default",
-    "homepage": "Homepage"
+    "homepage": "Homepage",
+    "open_log_folder": "Open log",
+    "log_to_file": "Generate file log",
+    "setting_tips": "An asterisk indicates that it will take effect after restarting, and the remaining settings will take effect after saving."
   },
   "home": {
     "hello_world": "Hello world",
@@ -94,7 +97,9 @@
     "change_description_failed": "Modification failed",
     "set_quick_backup": "Enable quick backup",
     "set_quick_backup_success": "Settings saved. You can now use keyboard shortcuts or the tray icon for quick operations",
-    "set_quick_backup_failed": "Setting failed"
+    "set_quick_backup_failed": "Setting failed",
+    "batch_delete": "Batch delete",
+    "batch_delete_prompt": "Note that this operation will delete all selected saves, please enter yes to confirm"
   },
   "addgame": {
     "search_local": "Detect local games",
@@ -116,7 +121,7 @@
     "path": "Path",
     "warning_for_save_file": "Adding files or folders with the same name is currently not supported. Please refrain from doing so. If needed, please provide feedback, and I will consider implementing it",
     "invalid_name_error": "Invalid game name. Please avoid including special characters that cannot be used to create files",
-    "duplicated_name_error": "Game name duplicated"
+    "duplicated_name_error": "Game name duplicated (The game name is case-insensitive)"
   },
   "app": {
     "early_access_warning": "This is an early test version. Stability cannot be guaranteed. Please use with caution"
@@ -224,25 +229,36 @@
     "delete_game_failed": "Failed to delete game",
     "open_backup_folder_failed": "Failed to open backup folder",
     "set_config_failed": "Failed to set config",
-    "reset_settings_failed": "Failed to reset settings"
+    "reset_settings_failed": "Failed to reset settings",
+    "change_description_failed": "Failed to edit description",
+    "open_log_folder_failed": "Cannot open log folder"
   },
-  "tray": {
-    "no_game_selected": "No game selected",
-    "auto_backup_interval": "Auto backup interval",
-    "turn_off_auto_backup": "Disable auto backup",
-    "5_minute": "5 minutes",
-    "10_minute": "10 minutes",
-    "30_minute": "30 minutes",
-    "60_minute": "60 minutes",
-    "quick_backup": "Quick backup",
-    "quick_apply": "Quick apply",
-    "exit": "Exit",
-    "success": "Success",
-    "error": "Error"
-  },
-  "backend_config": {
-    "updating_config_title": "Updating config file",
-    "updating_config_body": "The config file has been updated, and the old one will be backed up as GameSaveManagerConfig.json.bak"
+  "backend": {
+    "config": {
+      "updating_config_title": "Updating config file",
+      "updating_config_body": "The config file has been updated, and the old one will be backed up as GameSaveManagerConfig.json.bak"
+    },
+    "tray": {
+      "no_game_selected": "No game selected",
+      "auto_backup_interval": "Auto backup interval",
+      "turn_off_auto_backup": "Disable auto backup",
+      "5_minute": "5 minutes",
+      "10_minute": "10 minutes",
+      "30_minute": "30 minutes",
+      "60_minute": "60 minutes",
+      "quick_backup": "Quick backup",
+      "quick_apply": "Quick apply",
+      "exit": "Exit",
+      "success": "Success",
+      "error": "Error"
+    },
+    "backup": {
+      "extra_backup_file_not_exist": "Since the file does not exist, the extra backup (pre-overwrite backup) cannot be completed and the recovery is aborted. If you don't need this feature, turn it off in settings.",
+      "backup_file_not_exist": "File {name} does not exist, cannot be backed up or restored"
+    },
+    "archive": {
+      "file_not_exist": "The path {path} does not exist and has been automatically created."
+    }
   },
   "favorite": {
     "favorite_manage": "Favorite Management",
