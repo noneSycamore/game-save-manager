@@ -213,7 +213,15 @@
       "password": "Password"
     },
     "overwrite_upload": "Overwrite Upload",
-    "overwrite_download": "Overwrite Download"
+    "overwrite_download": "Overwrite Download",
+    "s3": {
+      "endpoint": "Endpoint",
+      "bucket": "Bucket",
+      "region": "Region",
+      "region_hint": "Please enter test if not required, do not leave it blank",
+      "access_key_id": "Access key ID",
+      "secret_access_key": "Secret access key"
+    }
   },
   "error": {
     "open_url_failed": "Unable to open url",
@@ -254,10 +262,10 @@
     },
     "backup": {
       "extra_backup_file_not_exist": "Since the file does not exist, the extra backup (pre-overwrite backup) cannot be completed and the recovery is aborted. If you don't need this feature, turn it off in settings.",
-      "backup_file_not_exist": "File {name} does not exist, cannot be backed up or restored"
+      "backup_file_not_exist": "File %{name} does not exist, cannot be backed up or restored"
     },
     "archive": {
-      "file_not_exist": "The path {path} does not exist and has been automatically created."
+      "file_not_exist": "The path %{path} does not exist and has been automatically created."
     }
   },
   "favorite": {

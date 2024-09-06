@@ -213,7 +213,15 @@
       "password": "密码"
     },
     "overwrite_upload": "覆盖性上传",
-    "overwrite_download": "覆盖性下载"
+    "overwrite_download": "覆盖性下载",
+    "s3": {
+      "endpoint": "S3端点",
+      "bucket": "存储桶",
+      "region": "区域",
+      "access_key_id": "访问密钥 ID",
+      "secret_access_key": "秘密访问密钥",
+      "region_hint": "如果不需要请输入test，不要留空"
+    }
   },
   "error": {
     "open_url_failed": "无法打开链接",
@@ -254,10 +262,10 @@
     },
     "backup": {
       "extra_backup_file_not_exist": "由于文件不存在，无法完成额外备份(覆盖前备份)，恢复中止。如果不需要该功能，请在设置中关闭。",
-      "backup_file_not_exist": "文件 {name} 不存在，无法进行备份或恢复"
+      "backup_file_not_exist": "文件 %{name} 不存在，无法进行备份或恢复"
     },
     "archive": {
-      "file_not_exist": "路径 {path} 不存在，已经自动创建"
+      "file_not_exist": "路径 %{path} 不存在，已经自动创建"
     }
   },
   "favorite": {
