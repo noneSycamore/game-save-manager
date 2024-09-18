@@ -4,13 +4,12 @@ import { computed, ref, watch } from "vue";
 import { useConfig } from "../stores/ConfigFile";
 import { invoke } from "@tauri-apps/api/tauri";
 import { show_error, show_info, show_success } from "../utils/notifications";
-import { Game } from "../schemas/saveTypes";
-import { useDark, useToggle } from '@vueuse/core'
+import { useDark } from '@vueuse/core'
 import { $t } from "../i18n";
 import { ElMessageBox, ElOption } from "element-plus";
 import { useI18n } from "vue-i18n";
 import draggable from 'vuedraggable'
-import { DocumentAdd, Grid, HotWater, InfoFilled, MostlyCloudy, Setting, SwitchFilled } from "@element-plus/icons-vue";
+import { DocumentAdd, HotWater, InfoFilled, MostlyCloudy, Setting, SwitchFilled } from "@element-plus/icons-vue";
 
 
 const isDark = useDark()
@@ -20,21 +19,15 @@ const i18n = useI18n()
 const locale_message = i18n.messages
 const locale_names = i18n.availableLocales
 
-function load_config() {
-    config.refresh()
+async function load_config() {
+    await config.refresh()
 }
-function submit_settings() {
+async function submit_settings() {
     loading.value = true;
-    invoke("set_config", { config: config.$state }).then((x) => {
-        loading.value = false;
-        show_success($t("settings.submit_success"));
-        load_config()
-    }).catch(
-        (e) => {
-            console.log(e)
-            show_error($t("error.set_config_failed"))
-        }
-    )
+    await config.save()
+    show_success($t("settings.submit_success"));
+    loading.value = false;
+    load_config()
 }
 function abort_change() {
     show_success($t("settings.reset_success"));
@@ -128,7 +121,6 @@ const router_list = computed(() => {
     var link_list = [
         { text: $t("sidebar.homepage"), link: "/home", icon: HotWater },
         { text: $t("sidebar.add_game"), link: "/add-game", icon: DocumentAdd },
-        { text: $t('sidebar.favorite_manage'), link: "/favorite", icon: Grid },
         { text: $t("sidebar.sync_settings"), link: "/sync-settings", icon: MostlyCloudy },
         { text: $t("sidebar.settings"), link: "/settings", icon: Setting },
         { text: $t("sidebar.about"), link: "/about", icon: InfoFilled },
@@ -216,6 +208,10 @@ const router_list = computed(() => {
             <div class="setting-box">
                 <ElSwitch v-model="config.settings.log_to_file" :loading="loading" />
                 <span>{{ $t("settings.log_to_file") }}*</span>
+            </div>
+            <div class="setting-box">
+                <ElSwitch v-model="config.settings.add_new_to_favorites" :loading="loading" />
+                <span>{{ $t("settings.add_new_to_favorites") }}</span>
             </div>
             <div class="setting-box drag-game-box">
                 <ElCollapse>
