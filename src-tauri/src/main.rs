@@ -10,22 +10,21 @@ i18n!("../locales", fallback = ["en_US", "zh_SIMPLIFIED"]);
 
 use config::{get_config, Config};
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::api::notification::Notification;
 use tracing::info;
 use tracing_subscriber::{filter::LevelFilter, Layer};
 
 use crate::config::config_check;
 
-mod archive;
 mod backup;
-mod cloud;
+mod cloud_sync;
 mod config;
 mod default_value;
 mod errors;
 mod ipc_handler;
+mod quick_actions;
 mod traits;
-mod tray;
 
 fn main() {
     // Init config
@@ -40,25 +39,28 @@ fn main() {
 
     // Init app
     let app = tauri::Builder::default()
-        .manage(Arc::new(Mutex::new(tray::QuickBackupState::default())))
+        .manage(Arc::new(
+            // 自动备份间隔，启动时默认为无（不自动备份）
+            quick_actions::AutoBackupDuration::new(0),
+        ))
         .invoke_handler(tauri::generate_handler![
             ipc_handler::open_url,
             ipc_handler::choose_save_file,
             ipc_handler::choose_save_dir,
             ipc_handler::get_local_config,
             ipc_handler::add_game,
-            ipc_handler::apply_backup,
-            ipc_handler::delete_backup,
+            ipc_handler::restore_snapshot,
+            ipc_handler::delete_snapshot,
             ipc_handler::delete_game,
-            ipc_handler::get_backup_list_info,
+            ipc_handler::get_game_snapshots_info,
             ipc_handler::set_config,
             ipc_handler::reset_settings,
-            ipc_handler::backup_save,
+            ipc_handler::create_snapshot,
             ipc_handler::open_backup_folder,
             ipc_handler::check_cloud_backend,
             ipc_handler::cloud_upload_all,
             ipc_handler::cloud_download_all,
-            ipc_handler::set_backup_describe,
+            ipc_handler::set_snapshot_description,
             ipc_handler::backup_all,
             ipc_handler::apply_all,
             ipc_handler::set_quick_backup_game,
@@ -68,24 +70,26 @@ fn main() {
     // 只允许运行一个实例
     let app = app.plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}));
 
-    // 处理退出到托盘
+    // 处理快捷备份和托盘的事件
+    let app = app
+        .system_tray(quick_actions::get_tray())
+        .on_system_tray_event(quick_actions::tray_event_handler)
+        .setup(quick_actions::setup);
+
+    // 处理退出到托盘（关闭窗口不退出）
     if config.settings.exit_to_tray {
-        app.system_tray(tray::get_tray())
-            .on_system_tray_event(tray::tray_event_handler)
-            .setup(tray::setup_timer)
-            .build(tauri::generate_context!())
+        app.build(tauri::generate_context!())
             .expect("Cannot build tauri app")
             .run(|_app_handle, event| {
                 if let tauri::RunEvent::ExitRequested { api, .. } = event {
                     api.prevent_exit();
                 }
             });
-        return;
+    } else {
+        // 不需要退出到托盘
+        app.run(tauri::generate_context!())
+            .expect("error while running tauri application");
     }
-
-    // 不需要退出到托盘
-    app.run(tauri::generate_context!())
-        .expect("error while running tauri application");
 
     // 需要初始化Notification，否则第一次提示不会显示
     Notification::new("Init Info")
@@ -116,7 +120,10 @@ fn init_log(config: &Config) {
             .with_ansi(false)
             .with_filter(LevelFilter::INFO);
 
-        tracing_subscriber::registry().with(console_layer).with(file_layer).init();
+        tracing_subscriber::registry()
+            .with(console_layer)
+            .with(file_layer)
+            .init();
     } else {
         tracing_subscriber::registry().with(console_layer).init();
     };

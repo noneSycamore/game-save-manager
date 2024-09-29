@@ -37,7 +37,13 @@
     "open_log_folder": "Open log",
     "log_to_file": "Generate file log",
     "setting_tips": "An asterisk indicates that it will take effect after restarting, and the remaining settings will take effect after saving.",
-    "add_new_to_favorites": "New games are automatically added to favorites"
+    "add_new_to_favorites": "New games are automatically added to favorites",
+    "quick_action_hotkeys": "Quick backup/restore hotkey settings (settings need to be saved)",
+    "hotkey": {
+      "quick_backup": "Quick backup",
+      "hint": "Note that the settings here are the same as other settings with an asterisk. They need to be saved and restarted to take effect. Setting it to empty will disable this function.",
+      "quick_apply": "Quick file reading"
+    }
   },
   "home": {
     "hello_world": "Hello world",
@@ -230,10 +236,10 @@
     "choose_save_file_error": "An error occurred while selecting the save file",
     "choose_executable_file_error": "An error occurred while selecting an executable file",
     "add_game_failed": "Failed to add game",
-    "get_backup_list_failed": "Failed to obtain backup information",
+    "get_game_snapshots_failed": "Failed to obtain backup information",
     "backup_failed": "Backup failed, check logs for more information",
-    "delete_backup_failed": "Delete backup failed, check logs for more information",
-    "apply_backup_failed": "Apply backup failed, check logs for more information",
+    "delete_snapshot_failed": "Delete backup failed, check logs for more information",
+    "restore_snapshot_failed": "Apply backup failed, check logs for more information",
     "delete_game_failed": "Failed to delete game",
     "open_backup_folder_failed": "Failed to open backup folder",
     "set_config_failed": "Failed to set config",
@@ -258,7 +264,8 @@
       "quick_apply": "Quick apply",
       "exit": "Exit",
       "success": "Success",
-      "error": "Error"
+      "error": "Error",
+      "find_error_detail": "Please check the log file for details"
     },
     "backup": {
       "extra_backup_file_not_exist": "Since the file does not exist, the extra backup (pre-overwrite backup) cannot be completed and the recovery is aborted. If you don't need this feature, turn it off in settings.",
@@ -285,5 +292,8 @@
     "add_success": "Node added successfully",
     "enable_edit": "Enable editing: You can drag and drop items directly to sort them",
     "game_not_found": "It is recommended to delete this collection as the game does not exist:"
+  },
+  "setting": {
+    "current_quick_action_game": "Current quick backup games"
   }
 }

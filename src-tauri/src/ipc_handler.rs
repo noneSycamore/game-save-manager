@@ -1,16 +1,16 @@
-use crate::backup::BackupListInfo;
-use crate::cloud::{self, upload_all, Backend};
-use crate::config::{get_config, Config, Game};
+use crate::backup::{Game, GameSnapshots};
+use crate::cloud_sync::{self, upload_all, Backend};
+use crate::config::{get_config, Config};
+use crate::errors::*;
 use crate::traits::Sanitizable;
-use crate::{backup, config};
-use crate::{errors::*, tray};
+use crate::{backup, config, quick_actions};
 use anyhow::Result;
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::api::dialog;
-use tauri::{AppHandle, Window};
+use tauri::{AppHandle, Manager, Window};
 use tracing::{debug, error, info, warn};
 
 #[allow(non_camel_case_types)]
@@ -90,22 +90,41 @@ pub async fn add_game(game: Game) -> Result<(), String> {
 
 #[allow(unused)]
 #[tauri::command]
-pub async fn apply_backup(game: Game, date: String, app_handle: AppHandle) -> Result<(), String> {
-    //handle_backup_err(game.apply_backup(&date,window), )
+pub async fn restore_snapshot(
+    game: Game,
+    date: String,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    //handle_backup_err(game.restore_snapshot(&date,window), )
     info!(target:"rgsm::ipc", "Applying backup: {:?} for game: {:?}", date, game);
-    game.apply_backup(&date, &app_handle).map_err(|e| {
-        error!(target:"rgsm::ipc", "Failed to apply backup: {:?}", e);
-        e.to_string()
-    })?;
+    game.restore_snapshot(&date, Some(&app_handle))
+        .map_err(|e| {
+            match &e {
+                BackupError::ExtraBackupFailed => {
+                    app_handle.emit_all(
+                        "Notification",
+                        IpcNotification {
+                            level: NotificationLevel::error,
+                            title: "ERROR".to_string(),
+                            msg: t!("backend.backup.extra_backup_file_not_exist").to_string(),
+                        },
+                    );
+                }
+                other => {
+                    error!(target:"rgsm::ipc", "Failed to apply backup: {:?}", other);
+                }
+            }
+            e.to_string()
+        })?;
     info!(target:"rgsm::ipc", "Successfully applied backup: {:?} for game: {:?}", date, game);
     Ok(())
 }
 
 #[allow(unused)]
 #[tauri::command]
-pub async fn delete_backup(game: Game, date: String) -> Result<(), String> {
+pub async fn delete_snapshot(game: Game, date: String) -> Result<(), String> {
     info!(target:"rgsm::ipc", "Deleting backup: {:?} for game: {:?}", date, game);
-    game.delete_backup(&date).await.map_err(|e| {
+    game.delete_snapshot(&date).await.map_err(|e| {
         error!(target:"rgsm::ipc", "Failed to delete backup: {:?}", e);
         e.to_string()
     })?;
@@ -127,9 +146,9 @@ pub async fn delete_game(game: Game) -> Result<(), String> {
 
 #[allow(unused)]
 #[tauri::command]
-pub async fn get_backup_list_info(game: Game) -> Result<BackupListInfo, String> {
+pub async fn get_game_snapshots_info(game: Game) -> Result<GameSnapshots, String> {
     info!(target:"rgsm::ipc", "Getting backup list info for game: {:?}", game);
-    game.get_backup_list_info().map_err(|e| {
+    game.get_game_snapshots_info().map_err(|e| {
         error!(target:"rgsm::ipc", "Failed to get backup list info: {:?}", e);
         e.to_string()
     })
@@ -157,9 +176,9 @@ pub async fn reset_settings() -> Result<(), String> {
 
 #[allow(unused)]
 #[tauri::command]
-pub async fn backup_save(game: Game, describe: String, window: Window) -> Result<(), String> {
+pub async fn create_snapshot(game: Game, describe: String, window: Window) -> Result<(), String> {
     info!(target:"rgsm::ipc", "Backing up save for game: {:?}", game);
-    handle_backup_err(game.backup_save(&describe).await, window)?;
+    handle_backup_err(game.create_snapshot(&describe).await, window)?;
     info!(target:"rgsm::ipc", "Successfully backed up save for game: {:?}", game);
     Ok(())
 }
@@ -220,7 +239,7 @@ pub async fn cloud_download_all(backend: Backend) -> Result<(), String> {
         error!(target:"rgsm::ipc", "Failed to get cloud backend operator: {:?}", e);
         e.to_string()
     })?;
-    match cloud::download_all(&op).await {
+    match cloud_sync::download_all(&op).await {
         Ok(_) => {
             info!(target:"rgsm::ipc", "Successfully downloaded all backups from cloud backend: {:?}", backend.sanitize());
             Ok(())
@@ -234,9 +253,13 @@ pub async fn cloud_download_all(backend: Backend) -> Result<(), String> {
 
 #[allow(unused)]
 #[tauri::command]
-pub async fn set_backup_describe(game: Game, date: String, describe: String) -> Result<(), String> {
+pub async fn set_snapshot_description(
+    game: Game,
+    date: String,
+    describe: String,
+) -> Result<(), String> {
     info!(target:"rgsm::ipc", "Setting backup describe for game: {:?}", game);
-    game.set_backup_describe(&date, &describe)
+    game.set_snapshot_description(&date, &describe)
         .await
         .map_err(|e| {
             error!(target:"rgsm::ipc", "Failed to set backup describe: {:?}", e);
@@ -262,7 +285,7 @@ pub async fn backup_all() -> Result<(), String> {
 #[tauri::command]
 pub async fn apply_all(app_handle: AppHandle) -> Result<(), String> {
     info!(target:"rgsm::ipc","Applying all backups.");
-    backup::apply_all(&app_handle).await.map_err(|e| {
+    backup::apply_all(Some(&app_handle)).await.map_err(|e| {
         error!(target:"rgsm::ipc", "Failed to apply all backups: {:?}", e);
         e.to_string()
     })?;
@@ -274,7 +297,7 @@ pub async fn apply_all(app_handle: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn set_quick_backup_game(app_handle: AppHandle, game: Game) -> Result<(), String> {
     info!(target:"rgsm::ipc","Setting quick backup game to: {:?}", game);
-    tray::set_current_game(&app_handle, game);
+    quick_actions::set_current_game(&app_handle, game).await;
     Ok(())
 }
 
@@ -323,7 +346,7 @@ pub async fn get_locale_message(
 fn handle_backup_err(res: Result<(), BackupError>, window: Window) -> Result<(), String> {
     if let Err(e) = res {
         match &e {
-            BackupError::CompressError(CompressError::Multiple(files)) => {
+            BackupError::Compress(CompressError::Multiple(files)) => {
                 files.iter().for_each(|file| {
                     error!(target:"rgsm::ipc","{}",file);
                     if let BackupFileError::NotExists(path) = file {

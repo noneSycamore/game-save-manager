@@ -1,4 +1,4 @@
-use crate::cloud::{Backend, CloudSettings};
+use crate::cloud_sync::Backend;
 
 pub fn default_false() -> bool {
     false
@@ -18,17 +18,15 @@ pub fn default_home_page() -> String {
 pub fn default_backend() -> Backend {
     Backend::Disabled
 }
-pub fn default_cloud_settings() -> CloudSettings {
-    CloudSettings {
-        always_sync: false,
-        auto_sync_interval: 0,
-        root_path: "/game-save-manager".to_string(),
-        backend: Backend::Disabled,
-    }
-}
 pub fn default_locale() -> String {
     "zh_SIMPLIFIED".to_owned()
 }
 pub fn empty_vec<T>() -> Vec<T> {
     Vec::new()
+}
+pub fn default_none<T>() -> Option<T> {
+    None
+}
+pub fn default<T: Default>() -> T {
+    T::default()
 }
